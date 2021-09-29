@@ -1,0 +1,129 @@
+library(mclust)
+library(Momocs)
+
+# load in the relevant PCs from analyses
+median.PC.efou <- Mclust(pca_dorsal$x[,1:3]) # load in the first three PCs from your PCA output in Momocs - first 3 PCs explain ~95% of the variation in your data
+summary(median.PC.efou) # best fit model output
+plot(median.PC.efou, what = "uncertainty") # visualize PCA pairings
+grps.median.efou <- as.numeric(median.PC.efou$classification) # this creates a vector 
+
+#clustering uncertainty and membership probability
+probs.GMM.uncertainty <-  median.PC.efou$uncertainty # the uncertainty of each data point; conditional probability of the individual data point belonging to the kth cluster 
+probs.3PCS <- median.PC.efou$z # membership probability for kth cluster.
+
+#uncertainty plot
+uncerPlot(probs.3PCS)
+
+#read in your csv to create a new csv with the above uncertainty, membership probability, and cluster assignment
+schizomida <- read.csv("new.csv")
+all.info <- cbind.data.frame(schizomida,probs.GMM.uncertainty, probs.3PCS,grps.median.efou, new.groups, new.groups.95)
+write.csv(all.info, file = "~/Documents/schizomidaGMM_3PCs-uncertainty-reassignments.csv", row.names = F) # write csv with all the info
+
+#plot
+tiff("~/Documents/schzomida.GMM.clusters.3PCs.tiff", units="in", width=9, height=7, res=300)
+plot(pca_chel.male$x[,1], pca_chel.male$x[,2], col=col.groups, pch=rep(16,6), cex =2, xlab="PC1", ylab="PC2")
+legend("topleft", pch=rep(16,6), col=colors.nine, bty='n', x.intersp=0.7, y.intersp=1, pt.cex = 1.5, legend=c("Cluster 1", "Cluster 2", "Cluster 3","Cluster 4", "Cluster 5", "Cluster 6", "Cluster 7", "Cluster 8", "Cluster 9"))
+dev.off()
+
+groups <- as.factor(grps.median.efou)
+colors.nine <- c("black", "darkcyan","#61D04F","#2297E6","#28E2E5","#CD0BBC","#F5C710", "brown", "magenta4")
+col.groups <- colors.nine[groups]
+
+
+#####Plot for .75 uncertainty cut off#######
+uncertainty <- as.numeric (probs.GMM.uncertainty < .25) # Assigns 0 or 1 to those individuals meeting the criterion
+new.groups <- uncertainty*grps.median.efou # creates new cluster membership
+
+#assign colors to cluster membership for PCA plot
+colors.ten <- c("gray62","black", "darkcyan","#61D04F","#2297E6","#28E2E5","#CD0BBC","#F5C710", "brown", "magenta4")
+for.colors <- as.factor(new.groups)
+grp.cols <-colors.ten[for.colors]
+
+
+#PCA with greater than .25 uncertainty cut off
+tiff("~/Documents/schizomida.75.uncertainty.3PCs.tiff", units="in", width=9, height=7, res=300)
+plot(pca_chel.male$x[,1], pca_chel.male$x[,2], col=grp.cols, pch=rep(16,7), cex =2, xlab="PC1", ylab="PC2")
+legend("topleft", pch=rep(16,7), col=colors.ten,bty='n', x.intersp=0.7, y.intersp=1, pt.cex = 1.5, legend=c("0.75 Uncertainty ", "Cluster 1", "Cluster 2","Cluster 3", "Cluster 4", "Cluster 5", "Cluster 6", "Cluster 7", "Cluster 8","Cluster 9"))
+dev.off()
+
+
+#####Plot for .95 uncertainty cut off#######
+uncertainty.95 <- as.numeric (probs.GMM.uncertainty < .05) # Assigns 0 or 1 to those individuals meeting the criterion
+new.groups.95 <- uncertainty.95*grps.median.efou # creates new cluster membership
+
+#assign colors to cluster membership for PCA plot
+for.colors.95 <- as.factor(new.groups.95)
+grp.cols.95 <-colors.ten[for.colors.95]
+
+
+#PCA with .95 uncertainty cut off
+tiff("~/Documents/schizomida.95.uncertainty.3PCs.tiff", units="in", width=9, height=7, res=300)
+plot(pca_chel.male$x[,1], pca_chel.male$x[,2], col=grp.cols.95, pch=rep(16,7), cex =2, xlab="PC1", ylab="PC2")
+legend("topleft", pch=rep(16,7), col=colors.ten,bty='n', x.intersp=0.7, y.intersp=1, pt.cex = 1.5, legend=c("0.95 Uncertainty ", "Cluster 1", "Cluster 2","Cluster 3", "Cluster 4", "Cluster 5", "Cluster 6", "Cluster 7", "Cluster 8","Cluster 9"))
+dev.off()
+
+#######generate median shape of each cluster
+names(dorsal.slide$coo) <- new.groups # generate shapes for those with an uncertainty less than .25 (high certainty/high probability of cluster membership)
+names(dorsal.slide$coo) <- new.groups.95 # change the list names for the coo object; this is isolating those individuals that had less than .05 uncertainty (very high certainty of cluster membership)
+
+#your coordinates matrices need to have the same number of rows in order to use the MSHAPES function in Momocs, so I will use the mean number of rows in your data set
+#determine number of interpolations based on mean row observations in data set
+x <- summary(dorsal.slide$coo)
+mean(as.numeric(x[,1]))
+lapply(dorsal.slide$coo, coo_interpolate, n=1700) -> dorsal.slide$coo
+
+#median shapes for each cluster
+tiff("GMM.schizomida.ones.95.tiff", units="in", width=9, height=7, res=300)
+ones.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='1']
+ms.ones <- MSHAPES(ones.DR) # generates mean global shape
+coo_plot(ms.ones, xy.axis = F, lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.twos.95.tiff", units="in", width=9, height=7, res=300)
+twos.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='2']
+ms.twos <- MSHAPES(twos.DR) # generates mean global shape
+coo_plot(ms.twos, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.three.95.tiff", units="in", width=9, height=7, res=300)
+threes.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='3']
+ms.threes <- MSHAPES(threes.DR) # generates mean global shape
+coo_plot(ms.threes, xy.axis = F, lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.four.95.tiff", units="in", width=9, height=7, res=300)
+fours.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='4']
+ms.fours <- MSHAPES(fours.DR) # generates mean global shape
+coo_plot(ms.fours, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.five.95.tiff", units="in", width=9, height=7, res=300)
+fives.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='5']
+ms.fives <- MSHAPES(fives.DR) # generates mean global shape
+coo_plot(ms.fives, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.six.95.tiff", units="in", width=9, height=7, res=300)
+sixes.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='6']
+ms.sixes <- MSHAPES(sixes.DR) # generates mean global shape
+coo_plot(ms.sixes, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.seven.95.tiff", units="in", width=9, height=7, res=300)
+sevens.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='7']
+ms.sevens <- MSHAPES(sevens.DR) # generates mean global shape
+coo_plot(ms.sevens, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.eight.95.tiff", units="in", width=9, height=7, res=300)
+eights.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='8']
+ms.eights <- MSHAPES(eights.DR) # generates mean global shape
+coo_plot(ms.eights, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+
+tiff("GMM.schizomida.nine.95.tiff", units="in", width=9, height=7, res=300)
+nines.DR <-dorsal.slide$coo[names(dorsal.slide$coo)=='9']
+ms.nines <- MSHAPES(nines.DR) # generates mean global shape
+coo_plot(ms.nines, xy.axis = F,  lwd = 2, lty = 1)
+dev.off()
+=
