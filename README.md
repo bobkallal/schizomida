@@ -11,4 +11,6 @@ caribbean_only: This script is as outline_analysis but reduced for taxa from Car
 
 cub_only: This script is as outline_analysis but reduced for Cuban taxa exclusively.
 
-clustering: This script is for Gaussian clustering analysis.
+diversity_vs_disparity: Pearson correlations
+
+clustering: Gaussian clustering analysis.
