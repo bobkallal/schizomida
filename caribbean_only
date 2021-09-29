@@ -1,0 +1,183 @@
+#caribbean island shapes
+
+library(Momocs)
+library(dplyr)
+library(ggplot2)
+library(borealis)
+library(dispRity)
+
+#import jpgs 
+lateral.jpgs<-list.files("directory/of/outlines", full.names=T)
+returns <- import_jpg(lateral.jpgs, auto.notcentered = T)
+lateral<-Out(returns)
+pile(lateral)
+
+#fac variables for momocs-based analyses
+#species fac
+info<-read.csv("location/of/csv")
+#from info data frame:
+cuba_list <- row.names(info)[info[,6] == 'Cuba']
+rico_list <- row.names(info)[info[,6] == 'Puerto Rico']
+#combination of haiti and DR
+DR_list <- row.names(info)[info[,6] == 'Dominican Republic']
+haiti_list <- row.names(info)[info[,6] == 'Haiti']
+hisp_list<-c(DR_list,haiti_list)
+jama_list <- row.names(info)[info[,6] == 'Jamaica']
+nava_list <- row.names(info)[info[,6] == 'Navassa (Haiti)']
+trin_list<-row.names(info)[info[,6] == 'Trinidad_&_Tobago']
+
+#all values associated with caribbean islands
+island_list<-c(cuba_list,rico_list,hisp_list,jama_list,nava_list,trin_list)
+
+#dataframe
+info_island<-info[c(island_list),]
+
+#combine Haiti and DR into Hispaniola
+info_island[info_island == "Haiti"] <- "Hispaniola"
+info_island[info_island == "Dominican Republic"] <- "Hispaniola"
+#info_island[,6]
+
+#jpg list
+island_list_num<-as.numeric(island_list)
+lateral.jpgs_island<-lateral.jpgs[c(island_list_num)]
+
+returns_island <- import_jpg(lateral.jpgs_island, auto.notcentered = T)
+lateral_island<-Out(returns_island)
+pile(lateral_island)
+
+#fac variables for momocs-based analyses
+#species fac
+lateral_taxa_island<-data.frame(info_island[,1])
+colnames(lateral_taxa_island) <- "species"
+lateral_island$fac<-lateral_taxa_island
+lateral_island$fac$species<-lateral_taxa_island
+
+#genus fac
+lateral_genus_island<-data.frame(info_island[,2])
+colnames(lateral_genus_island) <- "genus"
+lateral_island$fac$genus<-lateral_genus_island
+
+#family fac
+lateral_family_island<-data.frame(info_island[,3])
+colnames(lateral_family_island) <- "family"
+lateral_island$fac$family<-lateral_family_island
+
+#country fac
+lateral_country_island<-data.frame(info_island[,6])
+colnames(lateral_country_island) <- "country2"
+lateral_island$fac$country<-lateral_country_island
+
+#habitat fac
+lateral_habitat_island<-data.frame(info_island[,19])
+colnames(lateral_habitat_island) <- "habitat"
+lateral_island$fac$habitat<-lateral_habitat_island
+
+#elevation fac
+lateral_elevation_island<-data.frame(info_island[,18])
+colnames(lateral_elevation_island) <- "elevation"
+lateral_island$fac$elevation<-lateral_elevation_island
+
+#country area km2 fac
+lateral_countryarea_island<-data.frame(info_island[,16])
+colnames(lateral_countryarea_island) <- "countryarea"
+lateral_island$fac$countryarea<-lateral_countryarea_island
+
+#island area km2 fac
+lateral_islandarea_island<-data.frame(info_island[,17])
+colnames(lateral_islandarea_island) <- "islandarea"
+lateral_island$fac$islandarea<-lateral_islandarea_island
+
+#rescaling
+#scale<-data.frame(info[,11:13])
+#scalar<-(info[,13]/info[,12])
+#for (i in seq_along(lateral$coo))
+#lateral$coo[[i]]<-lateral$coo[[i]]*scalar[i]
+
+#lateral.smooth <- coo_smooth(lateral, 100)
+#lateral.center<-coo_center(lateral.smooth)
+#lateral.align <- coo_align(lateral.center)
+#lateral.slide<-(coo_slidedirection(lateral.align,direction="right"))
+
+#smooth and align (not true size)
+{
+lateral_island.smooth <- coo_smooth(lateral_island, 100)
+lateral_island.scale<-coo_scale(lateral_island.smooth)
+lateral_island.center<-coo_center(lateral_island.scale)
+#lateral_island.align <- coo_align(lateral_island.center)
+lateral_island.slide<-(coo_slidedirection(lateral_island.center,direction="up"))
+}
+
+#Calibrate and conduct elliptic Fourier analysis
+#calibrate_harmonicpower_efourier(lateral_island.align)
+efou_lateral_island<-efourier(lateral_island.slide,norm=F,nb.h=17)
+
+##PCA of the harmonic coefficients and PC contributions
+pca_lateral_island <- PCA(efou_lateral_island,  center=T)
+summary(pca_lateral_island)
+PC_contrib_lateral_island <- PCcontrib(pca_lateral_island, nax=c(1:4), sd.r = c(-2, -1, -0.5, 0, 0.5, 1, 2), gap = 1)
+PC_contrib_lateral_island$gg + geom_polygon(fill="slategrey", col="black") + ggtitle("PC LOADINGS") + coord_flip()
+
+#visualize pca
+plot.new()
+plot_PCA(pca_lateral_island, labelpoints = T, zoom = 1)  
+
+#convert dataframe columns to characters for borealis plots
+speciesforplot<-as.character(info_island[,1])
+genusforplot<-as.character(info_island[,2])
+famforplot<-as.character(info_island[,3])
+area1forplot<-as.character(info_island[,4])
+area2forplot<-as.character(info_island[,6])
+habitatforplot<-as.character(info_island[,19])
+
+pca_lateral_island$species<-speciesforplot
+pca_lateral_island$genus<-genusforplot
+pca_lateral_island$fam<-famforplot
+pca_lateral_island$area1<-area1forplot
+pca_lateral_island$area2<-area2forplot
+pca_lateral_island$habitat<-habitatforplot
+
+#plot by genus
+gg.shape.space(pca_lateral_island,group=pca_lateral_island$genus,group.title='genus',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2, labels = pca_lateral_island$species)
+#plot by country
+gg.shape.space(pca_lateral_island,group=pca_lateral_island$area2,group.title='country',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2, labels = pca_lateral_island$species)
+
+#disparity
+pca_scores_shapes_island <- pca_lateral_island$x
+
+#make sublists of taxa by island based on a csv (e.g., do different islands have different disparities in the Caribbean?)
+#sublist by island
+cuba_list_tax <- info[,1][info[,6] == 'Cuba']
+rico_list_tax <- info[,1][info[,6] == 'Puerto Rico']
+DR_list_tax <- info[,1][info[,6] == 'Dominican Republic']
+haiti_list_tax <- info[,1][info[,6] == 'Haiti']
+jama_list_tax <- info[,1][info[,6] == 'Jamaica']
+nava_list_tax <- info[,1][info[,6] == 'Navassa (Haiti)']
+trin_list_tax <- info[,1][info[,6] == 'Trinidad_&_Tobago']
+hisp_list_tax<-c(DR_list_tax,haiti_list_tax)
+
+
+#create custom subsets based on those lists
+subset.islands <- custom.subsets(pca_scores_shapes_island, list(
+	"Cuba"=c(cuba_list_tax),
+	"Puerto Rico"=c(rico_list_tax),
+	"Hispaniola"=c(hisp_list_tax),
+	"Jamaica"=c(jama_list_tax),
+	#"Navassa"=c(nava_list_tax),
+	"TT"=c(trin_list_tax)
+	))
+
+#default bootstrapping
+#fam.bs <- boot.matrix(subset.fam)
+#bootstrapping with rarefaction
+islands.bs <- boot.matrix(subset.islands, rarefaction = min(size.subsets(subset.islands)))
+
+#disparity tests
+#sum of variances
+disparity.SOV.islands <- dispRity(islands.bs, metric = c(sum, variances))
+test.dispRity(disparity.SOV.islands, test = wilcox.test, correction = "bonferroni")
+plot(disparity.SOV.islands)
+
+#median of centroids
+disparity.CENT.islands <- dispRity(islands.bs, metric = c(median, centroids))
+test.dispRity(disparity.CENT.islands, test = wilcox.test, correction = "bonferroni")
+plot(disparity.CENT.islands)
