@@ -1,0 +1,82 @@
+library(Momocs)
+library(dplyr)
+library(ggplot2)
+library(borealis)
+library(dispRity)
+library(geomorph)
+
+#all of this is the same as a typical run
+dorsal.jpgs<-list.files("directory/of/unscaled/jpgs", full.names=T)
+returns <- import_jpg(dorsal.jpgs, auto.notcentered = T)
+dorsal2<-Out(returns)
+pile(dorsal2)
+
+info<-read.csv("location/of/unscaled/csv")
+
+{
+dorsal2.smooth <- coo_smooth(dorsal2, 100)
+dorsal2.scale<-coo_scale(dorsal2.smooth)
+dorsal2.center<-coo_center(dorsal2.scale)
+#dorsal2.align <- coo_align(dorsal2.center)
+dorsal2.slide<-(coo_slidedirection(dorsal2.center,direction="up"))
+}
+
+efou_dorsal2<-efourier(dorsal2.slide,norm=F,nb.h=17)
+pca_dorsal2 <- PCA(efou_dorsal2, center=T)
+
+#these taxa don't have length measurements and therefore centroid sizes
+#27	Art_liberiensis
+#35	Bam_milloti
+#90	Han_gladiator
+#97	Han_surinamensis
+#101	Han_vanderdrifti
+#102	Han_yolandae
+#132	Meg_mossambicus
+#157	Ovo_lunatus
+#248	Sts_tejeriensis
+#277	Tay_ashmolei
+#280	Trc_orghidani
+
+#removes row from 'all' dataset without centroids
+pca_scores_shapes <- pca_dorsal$x
+pca_scores_shapes2 <- pca_scores_shapes[-c(27,35,90,97,101,102,131,157,248,277,280),] 
+
+#keep only PCs with more than 1% variance in data
+schizo<-NULL
+schizo$shape<-pca_scores_shapes2[,1:6]
+
+#import relevant information for size corrected shapes
+
+#fac variables for momocs-based analyses
+#species fac from scaled analysis
+dorsal2.jpgs<-list.files("directory/of/scaled/jpgs/", full.names=T)
+returns2 <- import_jpg(dorsal2.jpgs, auto.notcentered = T)
+dorsal2<-Out(returns2)
+pile(dorsal2)
+
+info2<-read.csv("location/of/scaled/csv")
+dorsal2_taxa<-data.frame(info2[,1])
+colnames(dorsal2_taxa) <- "species"
+dorsal2$fac<-dorsal2_taxa
+dorsal2$fac$species<-dorsal2_taxa
+
+#centroid fac from scaled analysis
+dorsal2_centroid<-data.frame(info2[,16])
+colnames(dorsal2_centroid) <- "centroid"
+dorsal2$fac$centroid<-dorsal2_centroid
+
+#combine scaled log size 
+schizo$logSize<-log(dorsal2$fac$centroid)
+schizo$logSize<-as.numeric(unlist(schizo$logSize))
+
+fit <- lm.rrpp(shape ~ logSize, SS.type = "I",  data = schizo, print.progress = FALSE, iter = 1000)
+fit.m <- manova.update(fit, print.progress = FALSE, tol = 0.001)
+
+#note for lateral it is as above except removing the following:
+#27	Art_liberiensis
+#35	Bam_milloti
+#92	Han_yolandae
+#121	Meg_mossambicus
+#232	Sts_tejeriensis
+#258	Tay_ashmolei
+#260	Trc_orghidani
