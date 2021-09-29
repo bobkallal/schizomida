@@ -1,0 +1,193 @@
+#Kallal, Miranda, Garcia, & Wood - schizomid flagellum elliptical fourier analyses
+#September 2021
+#R version 4.1
+
+library(Momocs)
+library(dplyr)
+library(ggplot2)
+library(borealis)
+library(dispRity)
+
+#import jpgs 
+dorsal.jpgs<-list.files("directory/with/jpgs/", full.names=T)
+returns <- import_jpg(dorsal.jpgs, auto.notcentered = T)
+dorsal<-Out(returns)
+pile(dorsal)
+
+#fac variables for momocs-based analyses
+#species fac
+info<-read.csv("location/of/csv")
+dorsal_taxa<-data.frame(info[,1])
+colnames(dorsal_taxa) <- "species"
+dorsal$fac<-dorsal_taxa
+dorsal$fac$species<-dorsal_taxa
+
+#genus fac
+dorsal_genus<-data.frame(info[,2])
+colnames(dorsal_genus) <- "genus"
+dorsal$fac$genus<-dorsal_genus
+
+#family fac
+dorsal_family<-data.frame(info[,3])
+colnames(dorsal_family) <- "family"
+dorsal$fac$family<-dorsal_family
+
+#realm fac
+dorsal_realm<-data.frame(info[,4])
+colnames(dorsal_realm) <- "realm"
+dorsal$fac$realm<-dorsal_realm
+
+#country fac
+dorsal_country<-data.frame(info[,6])
+colnames(dorsal_country) <- "country2"
+dorsal$fac$country<-dorsal_country
+
+#habitat fac
+dorsal_habitat<-data.frame(info[,19])
+colnames(dorsal_habitat) <- "habitat"
+dorsal$fac$habitat<-dorsal_habitat
+
+#elevation fac
+dorsal_elevation<-data.frame(info[,18])
+colnames(dorsal_elevation) <- "elevation"
+dorsal$fac$elevation<-dorsal_elevation
+
+#country area km2 fac
+dorsal_countryarea<-data.frame(info[,16])
+colnames(dorsal_countryarea) <- "countryarea"
+dorsal$fac$countryarea<-dorsal_countryarea
+
+#island area km2 fac
+dorsal_islandarea<-data.frame(info[,17])
+colnames(dorsal_islandarea) <- "islandarea"
+dorsal$fac$islandarea<-dorsal_islandarea
+
+#use this block for minimizing size differences
+{
+dorsal.smooth <- coo_smooth(dorsal, 100)
+dorsal.scale<-coo_scale(dorsal.smooth)
+dorsal.center<-coo_center(dorsal.scale)
+#dorsal.align <- coo_align(dorsal.center)
+dorsal.slide<-(coo_slidedirection(dorsal.center,direction="up"))
+}
+
+#for true scaling, use this block
+#scalar<-(info[,13]/info[,12])
+#for (i in seq_along(dorsal$coo))
+#dorsal$coo[[i]]<-dorsal$coo[[i]]*scalar[i]
+#dorsal.smooth <- coo_smooth(dorsal, 100)
+#dorsal.center<-coo_center(dorsal.smooth)
+#dorsal.slide<-(coo_slidedirection(dorsal.center,direction="up"))
+
+#Calibrate and conduct elliptic Fourier analysis
+
+calibrate_harmonicpower_efourier(dorsal.slide)
+efou_dorsal<-efourier(dorsal.slide,norm=F,nb.h=17)
+
+##PCA of the harmonic coefficients and PC contributions
+pca_dorsal <- PCA(efou_dorsal,  center=T)
+summary(pca_dorsal)
+PC_contrib_dorsal <- PCcontrib(pca_dorsal, nax=c(1:4), sd.r = c(-2, -1, -0.5, 0, 0.5, 1, 2), gap = 1)
+PC_contrib_dorsal$gg + geom_polygon(fill="slategrey", col="black") + ggtitle("PC LOADINGS") + coord_flip()
+
+#visualize pca
+plot.new()
+plot_PCA(pca_dorsal, labelpoints = T, zoom = 1)  
+
+#convert dataframe columns to characters for borealis plots
+speciesforplot<-as.character(info[,1])
+genusforplot<-as.character(info[,2])
+famforplot<-as.character(info[,3])
+area1forplot<-as.character(info[,4])
+area2forplot<-as.character(info[,6])
+habitatforplot<-as.character(info[,19])
+RMRcodings<-as.character(info[,26])
+
+pca_dorsal$species<-speciesforplot
+pca_dorsal$genus<-genusforplot
+pca_dorsal$fam<-famforplot
+pca_dorsal$area1<-area1forplot
+pca_dorsal$area2<-area2forplot
+pca_dorsal$habitat<-habitatforplot
+pca_dorsal$RMRcodings<-RMRcodings
+
+#borealis morphospace plot
+#by genus
+gg.shape.space(pca_dorsal,group=pca_dorsal$genus,group.title='genus',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2, labels = speciesforplot)
+#by family
+gg.shape.space(pca_dorsal,group=pca_dorsal$fam,group.title='family',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2)
+#by realm
+gg.shape.space(pca_dorsal,group=pca_dorsal$area1,group.title='realm',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2)
+#by country
+gg.shape.space(pca_dorsal,group=pca_dorsal$area2,group.title='country',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2)
+#by habitat
+gg.shape.space(pca_dorsal,group=pca_dorsal$habitat,group.title='habitat',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2)
+
+#disparity
+#generate matrix & array of taxa and PC scores
+pca_scores_shapes <- pca_dorsal$x
+
+#make sublists of taxa by family based on a csv
+hub_list <- info[,1][info[,3] == 'Hubbardiidae']
+pro_list <- info[,1][info[,3] == 'Protoschizomidae']
+
+#sublist by island
+cuba_list <- info[,1][info[,6] == 'Cuba']
+rico_list <- info[,1][info[,6] == 'Puerto Rico']
+#combination of haiti and DR
+DR_list <- info[,1][info[,6] == 'Dominican Republic']
+haiti_list <- info[,1][info[,6] == 'Haiti']
+hisp_list<-c(DR_list,haiti_list)
+
+#sublists by realm
+pale_list <- info[,1][info[,4] == 'Palearctic']
+afro_list <- info[,1][info[,4] == 'Afrotropics']
+indo_list <- info[,1][info[,4] == 'Indomalayan']
+aust_list <- info[,1][info[,4] == 'Australasia']
+near_list <- info[,1][info[,4] == 'Nearctic']
+neot_list <- info[,1][info[,4] == 'Neotropics']
+mext_list <- info[,1][info[,4] == 'MTZ']
+
+#sublists by habitat
+epi_list <- info[,1][info[,19] == 'epigean']
+hyp_list <- info[,1][info[,19] == 'hypogean']
+
+#create custom subsets based on those lists
+subset.fam <- custom.subsets(pca_scores_shapes, list("Protoschizomidae"=c(pro_list),"Hubbardiidae"=c(hub_list)))
+subset.realm <- custom.subsets(pca_scores_shapes, list("Afrotropics"=c(afro_list),"Indomalayan"=c(indo_list),"Australasia"=c(aust_list),"Nearctic"=c(near_list),"Neotropics"=c(neot_list),"Mexican Transition Zone"=c(mext_list)))
+subset.hab <- custom.subsets(pca_scores_shapes, list("epigean"=c(epi_list),"hypogean"=c(hyp_list)))
+
+
+#default bootstrapping
+#fam.bs <- boot.matrix(subset.fam)
+#bootstrapping with rarefaction
+fam.bs <- boot.matrix(subset.fam, rarefaction = min(size.subsets(subset.fam)))
+realm.bs <- boot.matrix(subset.realm, rarefaction = min(size.subsets(subset.realm)))
+hab.bs <- boot.matrix(subset.hab, rarefaction = min(size.subsets(subset.hab)))
+
+
+#disparity tests
+
+# family sum of variances
+disparity.SOV.fam <- dispRity(fam.bs, metric = c(sum, variances))
+test.dispRity(disparity.SOV.fam, test = wilcox.test)
+
+# family median of centroids
+disparity.CENT.fam <- dispRity(fam.bs, metric = c(median, centroids))
+test.dispRity(disparity.CENT.fam, test = wilcox.test)
+
+# habitat sum of variances
+disparity.SOV.hab <- dispRity(hab.bs, metric = c(sum, variances))
+test.dispRity(disparity.SOV.hab, test = wilcox.test)
+
+# habitat median of centroids
+disparity.CENT.hab <- dispRity(hab.bs, metric = c(median, centroids))
+test.dispRity(disparity.CENT.hab, test = wilcox.test)
+
+# realms SOV
+disparity.SOV.realm <- dispRity(realm.bs, metric = c(sum, variances))
+test.dispRity(disparity.SOV.realm, test = wilcox.test, correction = "bonferroni")
+
+#realms CENT
+disparity.CENT.realm <- dispRity(realm.bs, metric = c(median, centroids))
+test.dispRity(disparity.CENT.realm, test = wilcox.test, correction = "bonferroni")
