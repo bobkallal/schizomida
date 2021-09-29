@@ -1,0 +1,11 @@
+data<-read.csv("textfile/with/disparity/andothervariables")
+
+ggscatter(data, x = "island.area.km2", y = "described.species", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "island area", ylab = "described species")
+		  
+cor <- cor.test(data$described.species, data$island.area.km2, method = "pearson")
+cor
+
+#same for comparing diversity(described species) to disparity
