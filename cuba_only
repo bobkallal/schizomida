@@ -1,0 +1,140 @@
+library(Momocs)
+library(dplyr)
+library(ggplot2)
+library(borealis)
+library(dispRity)
+
+#import jpgs and info
+dorsal.jpgs<-list.files("directory/of/jpgs", full.names=T)
+info<-read.csv("location/of/csv")
+cuba_list <- row.names(info)[info[,6] == 'Cuba']
+info_cuba<-info[c(cuba_list),]
+
+#jpg list
+cuba_list_num<-as.numeric(cuba_list)
+dorsal.jpgs_cuba<-dorsal.jpgs[c(cuba_list_num)]
+
+returns_cuba <- import_jpg(dorsal.jpgs_cuba, auto.notcentered = T)
+dorsal_cuba<-Out(returns_cuba)
+pile(dorsal_cuba)
+
+#fac variables for momocs-based analyses
+#species fac
+dorsal_taxa_cuba<-data.frame(info_cuba[,1])
+colnames(dorsal_taxa_cuba) <- "species"
+dorsal_cuba$fac<-dorsal_taxa_cuba
+dorsal_cuba$fac$species<-dorsal_taxa_cuba
+
+#genus fac
+dorsal_genus_cuba<-data.frame(info_cuba[,2])
+colnames(dorsal_genus_cuba) <- "genus"
+dorsal_cuba$fac$genus<-dorsal_genus_cuba
+
+#family fac
+dorsal_family_cuba<-data.frame(info_cuba[,3])
+colnames(dorsal_family_cuba) <- "family"
+dorsal_cuba$fac$family<-dorsal_family_cuba
+
+#country fac
+dorsal_country_cuba<-data.frame(info_cuba[,6])
+colnames(dorsal_country_cuba) <- "country2"
+dorsal_cuba$fac$country<-dorsal_country_cuba
+
+#habitat fac
+dorsal_habitat_cuba<-data.frame(info_cuba[,19])
+colnames(dorsal_habitat_cuba) <- "habitat"
+dorsal_cuba$fac$habitat<-dorsal_habitat_cuba
+
+#elevation fac
+dorsal_elevation_cuba<-data.frame(info_cuba[,18])
+colnames(dorsal_elevation_cuba) <- "elevation"
+dorsal_cuba$fac$elevation<-dorsal_elevation_cuba
+
+#country area km2 fac
+dorsal_countryarea_cuba<-data.frame(info_cuba[,16])
+colnames(dorsal_countryarea_cuba) <- "countryarea"
+dorsal_cuba$fac$countryarea<-dorsal_countryarea_cuba
+
+#island area km2 fac
+dorsal_islandarea_cuba<-data.frame(info_cuba[,17])
+colnames(dorsal_islandarea_cuba) <- "islandarea"
+dorsal_cuba$fac$islandarea<-dorsal_islandarea_cuba
+
+{
+dorsal_cuba.smooth <- coo_smooth(dorsal_cuba, 100)
+dorsal_cuba.scale<-coo_scale(dorsal_cuba.smooth)
+dorsal_cuba.center<-coo_center(dorsal_cuba.scale)
+#dorsal_cuba.align <- coo_align(dorsal_cuba.center)
+dorsal_cuba.slide<-(coo_slidedirection(dorsal_cuba.center,direction="up"))
+}
+
+#Calibrate and conduct elliptic Fourier analysis
+calibrate_harmonicpower_efourier(dorsal_cuba.align)
+efou_dorsal_cuba<-efourier(dorsal_cuba.slide,norm=F,nb.h=17)
+
+#PCA of the harmonic coefficients and PC contributions
+pca_dorsal_cuba <- PCA(efou_dorsal_cuba,  center=T)
+summary(pca_dorsal_cuba)
+PC_contrib_dorsal_cuba <- PCcontrib(pca_dorsal_cuba, nax=c(1:4), sd.r = c(-2, -1, -0.5, 0, 0.5, 1, 2), gap = 1)
+PC_contrib_dorsal_cuba$gg + geom_polygon(fill="slategrey", col="black") + ggtitle("PC LOADINGS") + coord_flip()
+
+#visualize pca
+plot.new()
+plot_PCA(pca_dorsal_cuba, labelpoints = T, zoom = 1)  
+
+#convert dataframe columns to characters for borealis plots
+speciesforplot<-as.character(info_cuba[,1])
+genusforplot<-as.character(info_cuba[,2])
+famforplot<-as.character(info_cuba[,3])
+area1forplot<-as.character(info_cuba[,4])
+area2forplot<-as.character(info_cuba[,6])
+habitatforplot<-as.character(info_cuba[,19])
+
+pca_dorsal_cuba$species<-speciesforplot
+pca_dorsal_cuba$genus<-genusforplot
+pca_dorsal_cuba$fam<-famforplot
+pca_dorsal_cuba$area1<-area1forplot
+pca_dorsal_cuba$area2<-area2forplot
+pca_dorsal_cuba$habitat<-habitatforplot
+
+#plot by genus
+gg.shape.space(pca_dorsal_cuba,group=pca_dorsal_cuba$genus,group.title='genus',include.legend = TRUE,convex.hulls=TRUE,pt.size = 2, labels = speciesforplot)
+
+#disparity
+#generate matrix & array of taxa and PC scores
+pca_scores_shapes_cuba <- pca_dorsal_cuba$x
+
+#make sublists of taxa by family based on a csv
+ant_list_tax <- info_cuba[,1][info_cuba[,2] == 'Antillostenochrus']
+cok_list_tax <- info_cuba[,1][info_cuba[,2] == 'Cokendolpherius']
+cut_list_tax <- info_cuba[,1][info_cuba[,2] == 'Cubacanthozomus']
+cuz_list_tax <- info_cuba[,1][info_cuba[,2] == 'Cubazomus']
+dum_list_tax <- info_cuba[,1][info_cuba[,2] == 'Dumitrescoella']
+gua_list_tax <- info_cuba[,1][info_cuba[,2] == 'Guanazomus']
+het_list_tax <- info_cuba[,1][info_cuba[,2] == 'Heterocubazomus']
+pin_list_tax <- info_cuba[,1][info_cuba[,2] == 'Pinero']
+red_list_tax <- info_cuba[,1][info_cuba[,2] == 'Reddellzomus']
+row_list_tax <- info_cuba[,1][info_cuba[,2] == 'Rowlandius']
+sig_list_tax <- info_cuba[,1][info_cuba[,2] == 'Siguanesiotes']
+trc_list_tax <- info_cuba[,1][info_cuba[,2] == 'Troglocubazomus']
+
+
+#create custom subsets based on those lists; some removed for low counts
+subset.cuba <- custom.subsets(pca_scores_shapes_cuba, list(
+  "Ant"=c(ant_list_tax),
+  #"Cok"=c(cok_list_tax),
+  #"Cut"=c(cut_list_tax),
+  "Cuz"=c(cuz_list_tax),
+  #"Dum"=c(dum_list_tax),
+  #"Gua"=c(gua_list_tax),
+  #"Het"=c(het_list_tax),
+  #"Pin"=c(pin_list_tax),
+  #"Red"=c(red_list_tax),
+  "Row"=c(row_list_tax)
+  #"Sig"=c(sig_list_tax)
+  #"Trc"=c(trc_list_tax)
+))
+
+cuba.bs <- boot.matrix(subset.cuba, rarefaction = min(size.subsets(subset.cuba)))
+disparity.SOV.cuba<- dispRity(cuba.bs, metric = c(sum, variances))
+test.dispRity(disparity.SOV.cuba, test = wilcox.test)
